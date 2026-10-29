@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanskrit Schema Validator (Aṣṭādhyāyī 1.1.1 Vṛddhi Engine)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter, JetBrains Mono, & Noto Serif Devanagari -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            amber: {
+              350: '#fbbf24',
+              450: '#f59e0b',
+            },
+            sanskrit: {
+              gold: '#D4AF37',
+              goldLight: '#F3E5AB',
+              copper: '#B87333',
+              deepSlate: '#0F172A',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            serif: ['Noto Serif Devanagari', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Subtle glow utility */
+    .glow-gold {
+      box-shadow: 0 0 15px -3px rgba(212, 175, 55, 0.25);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.3);
+    }
+    .glow-rose {
+      box-shadow: 0 0 15px -3px rgba(244, 63, 94, 0.3);
+    }
+    
+    /* JSON Syntax Highlight Styling */
+    .json-key { color: #9333ea; } /* Tailwind purple-600 in dark mode override */
+    .json-key-dark { color: #c084fc; } /* purple-400 */
+    .json-string { color: #34d399; } /* emerald-400 */
+    .json-number { color: #fbbf24; } /* amber-400 */
+    .json-boolean { color: #f43f5e; } /* rose-400 */
+    .json-null { color: #94a3b8; } /* slate-400 */
+
+    /* Pulse Pipeline Animations */
+    @keyframes pulseLine {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.9; }
+    }
+    .pipeline-line-active {
+      animation: pulseLine 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950">
+
+  <!-- TOP DECK: HEADER & NAVBAR -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 font-serif text-2xl font-bold shadow-md shadow-amber-500/20">
+          वृ
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+              Sanskrit Schema Validator
+            </h1>
+            <span class="px-2 py-0.5 text-xs font-mono bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-md font-medium">
+              v1.0.4-1.1.1
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 font-mono">
+            Aṣṭādhyāyī 1.1.1 Vṛddhi Transducer Engine • Digital Humanities Verification
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick Info Badges -->
+      <div class="flex items-center gap-3 text-xs font-mono text-slate-400">
+        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60">
+          <i class="fa-solid me-1 fa-book-bookmark text-amber-400"></i>
+          <span>Rule: <strong>1.1.1 (vṛddhirādaic)</strong></span>
+        </div>
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60">
+          <i class="fa-solid fa-microchip text-emerald-400"></i>
+          <span>Output: <strong>Schema JSON</strong></span>
+        </div>
+        <a href="#pipeline-section" class="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 font-semibold">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Schema Specs</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- HERO INTRO CARD -->
+    <section class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800/80 border border-slate-800 p-6 md:p-8 shadow-xl">
+      <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative z-10 max-w-4xl space-y-3">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+          Formal Language Theory & Machine-Readable Linguistics
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">
+          Translating Pāṇinian Rule Logic into Real-Time Machine-Readable JSON Payloads
+        </h2>
+        <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+          Pāṇini's <em>Aṣṭādhyāyī</em> functions as a deterministic algorithmic system. Rule <strong>1.1.1 (वृद्धिरादैच् - vṛddhirādaic)</strong> acts as a primary algebraic definition rule (<em>saṃjñā sūtra</em>), assigning the term <strong>Vṛddhi</strong> exclusively to phonemes <span class="font-mono text-amber-300 bg-slate-800 px-1.5 py-0.5 rounded">ā</span>, <span class="font-mono text-amber-300 bg-slate-800 px-1.5 py-0.5 rounded">ai</span>, and <span class="font-mono text-amber-300 bg-slate-800 px-1.5 py-0.5 rounded">au</span> (<span class="font-mono text-slate-400">āt-aic</span>). Test phonemes below to generate strict computational validation output.
+        </p>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE ENGINE WORKSPACE (2 COLUMN LAYOUT) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- LEFT COLUMN: CONTROL PANEL & INPUTS (5 COLS) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- INPUT CONTROLS CARD -->
+        <div class="rounded-xl bg-slate-900 border border-slate-800 p-5 shadow-lg space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-keyboard text-amber-400"></i> Phoneme Input Transducer
+            </h3>
+            <span class="text-xs font-mono text-slate-400">Input Mode: Unicode/IAST</span>
+          </div>
+
+          <!-- Quick Selector Buttons -->
+          <div class="space-y-3">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Preset Vṛddhi Phonemes <span class="text-emerald-400 text-[10px] uppercase font-mono">(Triggers Valid State)</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="selectPhoneme('ā', 'Devanagari: आ / IAST: ā')" class="preset-btn px-3 py-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-100 font-mono text-base font-medium flex flex-col items-center justify-center gap-0.5 transition-all focus:ring-2 focus:ring-amber-500 hover:border-amber-500/50">
+                <span class="text-lg font-bold text-amber-300">ā</span>
+                <span class="text-[10px] text-slate-400 font-serif">आ (Long A)</span>
+              </button>
+              <button onclick="selectPhoneme('ai', 'Devanagari: ऐ / IAST: ai')" class="preset-btn px-3 py-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-100 font-mono text-base font-medium flex flex-col items-center justify-center gap-0.5 transition-all focus:ring-2 focus:ring-amber-500 hover:border-amber-500/50">
+                <span class="text-lg font-bold text-amber-300">ai</span>
+                <span class="text-[10px] text-slate-400 font-serif">ऐ (Diphthong)</span>
+              </button>
+              <button onclick="selectPhoneme('au', 'Devanagari: औ / IAST: au')" class="preset-btn px-3 py-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-100 font-mono text-base font-medium flex flex-col items-center justify-center gap-0.5 transition-all focus:ring-2 focus:ring-amber-500 hover:border-amber-500/50">
+                <span class="text-lg font-bold text-amber-300">au</span>
+                <span class="text-[10px] text-slate-400 font-serif">औ (Diphthong)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Non-Vṛddhi Quick Buttons -->
+          <div class="space-y-3">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Non-Vṛddhi Vowels & Consonants <span class="text-rose-400 text-[10px] uppercase font-mono">(Triggers Mismatch)</span>
+            </label>
+            <div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+              <button onclick="selectPhoneme('a', 'Short Vowel')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">a</button>
+              <button onclick="selectPhoneme('i', 'Short Vowel')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">i</button>
+              <button onclick="selectPhoneme('u', 'Short Vowel')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">u</button>
+              <button onclick="selectPhoneme('ṛ', 'Vocalic R')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">ṛ</button>
+              <button onclick="selectPhoneme('e', 'Guṇa Vowel')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">e</button>
+              <button onclick="selectPhoneme('o', 'Guṇa Vowel')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">o</button>
+              <button onclick="selectPhoneme('k', 'Consonant')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">k</button>
+              <button onclick="selectPhoneme('m', 'Consonant')" class="preset-btn p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/60 text-slate-200 font-mono text-sm text-center transition-all hover:border-rose-500/50">m</button>
+            </div>
+          </div>
+
+          <!-- Custom Unicode Input -->
+          <div class="space-y-2 pt-2 border-t border-slate-800">
+            <label for="customPhonemeInput" class="block text-xs font-semibold text-slate-300">
+              Custom Character / Unicode Input
+            </label>
+            <div class="relative flex items-center">
+              <input 
+                type="text" 
+                id="customPhonemeInput" 
+                placeholder="Type IAST phoneme (e.g., ā, ai, au, o, k)..." 
+                class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-3.5 py-2.5 text-sm font-mono text-amber-200 placeholder-slate-500 outline-none transition-all"
+                value="ā"
+                oninput="handleCustomInput(this.value)"
+              >
+              <span class="absolute right-3 text-xs font-mono text-slate-500 pointer-events-none" id="inputCharCount">1 char</span>
+            </div>
+          </div>
+
+          <!-- Primary Execute Transducer Button -->
+          <button 
+            id="runTransducerBtn"
+            onclick="executeTransducer()" 
+            class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-semibold font-sans text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 group cursor-pointer"
+          >
+            <i class="fa-solid fa-bolt transition-transform group-hover:scale-125"></i>
+            <span>Run Schema Transducer (1.1.1)</span>
+          </button>
+        </div>
+
+        <!-- EXPLANATION LOG BOX -->
+        <div class="rounded-xl bg-slate-900 border border-slate-800 p-5 shadow-lg space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i class="fa-solid fa-file-waveform text-amber-400"></i> Pipeline Execution Reasoning
+            </h4>
+            <span id="evaluationTime" class="text-[11px] font-mono text-slate-500">0.42 ms</span>
+          </div>
+
+          <div id="explanationBox" class="text-xs text-slate-300 leading-relaxed font-sans space-y-2 min-h-[90px] p-3 rounded-lg bg-slate-950 border border-slate-800/80">
+            <!-- Dynamic explanation loaded here -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: PIPELINE & JSON OUTPUT (7 COLS) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- REAL-TIME PIPELINE FLOW VISUALIZER -->
+        <div id="pipeline-section" class="rounded-xl bg-slate-900 border border-slate-800 p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i class="fa-solid fa-diagram-project text-amber-400"></i> 3-Tier Decoupling Pipeline
+            </h3>
+            <span class="text-xs font-mono text-amber-400/80">Deterministic Execution</span>
+          </div>
+
+          <!-- Pipeline Graphic Steps -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            
+            <!-- Step 1 -->
+            <div id="step1Card" class="p-3 rounded-lg bg-slate-950 border border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <span>Tier 1</span>
+                <i class="fa-solid fa-filter text-slate-500" id="step1Icon"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200">Token Normalization</p>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5" id="step1Value">Char: 'ā'</p>
+              </div>
+              <div class="text-[10px] text-slate-500">Normalizes Unicode & IAST phoneme attributes</div>
+            </div>
+
+            <!-- Step 2 -->
+            <div id="step2Card" class="p-3 rounded-lg bg-slate-950 border border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <span>Tier 2</span>
+                <i class="fa-solid fa-scale-balanced text-slate-500" id="step2Icon"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200">Rule 1.1.1 Constraint</p>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5" id="step2Value">vṛddhirādaic (āt-aic)</p>
+              </div>
+              <div class="text-[10px] text-slate-500">Evaluates set membership: {ā, ai, au}</div>
+            </div>
+
+            <!-- Step 3 -->
+            <div id="step3Card" class="p-3 rounded-lg bg-slate-950 border border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <span>Tier 3</span>
+                <i class="fa-solid fa-code text-slate-500" id="step3Icon"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200">Serialization Payload</p>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5" id="step3Value">Status: PASSED</p>
+              </div>
+              <div class="text-[10px] text-slate-500">Generates machine-readable JSON</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- OUTPUT JSON PAYLOAD VIEWER -->
+        <div class="rounded-xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+          
+          <!-- Panel Header -->
+          <div class="px-5 py-3.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+              <h3 class="text-sm font-semibold text-slate-200 font-mono flex items-center gap-2">
+                <i class="fa-regular fa-file-code text-amber-400"></i> JSON Validation Output
+              </h3>
+
+              <!-- Dynamic Status Badge -->
+              <span id="statusBadge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 glow-emerald">
+                <i class="fa-solid fa-circle-check text-[10px]"></i>
+                PASSED (True State)
+              </span>
+            </div>
+
+            <!-- Action Tools -->
+            <div class="flex items-center gap-2">
+              <button onclick="copyJsonPayload()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 active:scale-95" title="Copy formatted JSON">
+                <i class="fa-regular fa-copy text-amber-400"></i>
+                <span>Copy</span>
+              </button>
+              <button onclick="downloadJsonReport()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 active:scale-95" title="Download JSON file">
+                <i class="fa-solid fa-download text-amber-400"></i>
+                <span>Export .json</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Code View Body -->
+          <div class="p-4 bg-slate-950 font-mono text-xs sm:text-sm overflow-x-auto min-h-[320px] max-h-[420px]">
+            <pre id="jsonOutput" class="text-slate-300 leading-relaxed"><code><!-- Syntax highlighted JSON output generated here --></code></pre>
+          </div>
+
+          <!-- Panel Footer Stats -->
+          <div class="px-5 py-2.5 bg-slate-900/60 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <span id="schemaVersionText">Schema Standard: JSON-Schema Draft-07</span>
+            <span id="byteSizeText">Size: -- bytes</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- DOWNSTREAM AUTOMATION SIMULATOR SECTION -->
+    <section class="rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xl space-y-5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 gap-2">
+        <div>
+          <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-gears text-amber-400"></i> Downstream Automation Simulation
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Validation is an active trigger. Valid Vṛddhi phonemes immediately unlock downstream Sandhi phonology and Taddhita morphological derivations.
+          </p>
+        </div>
+        <div id="automationStatusIndicator" class="px-3 py-1 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-fit">
+          Triggers Active
+        </div>
+      </div>
+
+      <!-- Simulation Interactive Grid -->
+      <div id="simulationContent" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- DEMO 1: VṚDDHI SANDHI BLENDING -->
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-amber-400 font-semibold uppercase">Rule 6.1.88 (vṛddhir eci)</span>
+            <span class="text-[10px] font-mono text-slate-500">Vowel Synthesis</span>
+          </div>
+          <h4 class="text-sm font-bold text-slate-200">Vṛddhi Sandhi Blending</h4>
+          <p class="text-xs text-slate-400">
+            Combines base stem ending in <span class="font-mono text-slate-200">a/ā</span> with following vowel <span class="font-mono text-slate-200">e/ai</span> to produce Vṛddhi diphthong <span class="font-mono text-amber-300">ai</span>.
+          </p>
+
+          <div class="p-3.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs space-y-2">
+            <div class="flex items-center justify-between text-slate-300">
+              <span>Input Pair:</span>
+              <span class="text-amber-200">tava + eva</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-300">
+              <span>Active Vṛddhi Vowel:</span>
+              <span id="sandhiTriggerVowel" class="text-emerald-400 font-bold">ai</span>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between font-bold text-sm">
+              <span class="text-slate-400">Derived Form:</span>
+              <span id="sandhiResult" class="text-amber-400 font-serif text-base">tavaiva (तवैव)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEMO 2: TADDHITA PATRONYMIC DERIVATION -->
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-amber-400 font-semibold uppercase">Rule 7.2.115 (aco ñniti)</span>
+            <span class="text-[10px] font-mono text-slate-500">Morphological Affixation</span>
+          </div>
+          <h4 class="text-sm font-bold text-slate-200">First-Vowel Vṛddhi Upgrade (Taddhita)</h4>
+          <p class="text-xs text-slate-400">
+            When adding a patronymic suffix (like <em>aṇ</em>), the initial vowel <span class="font-mono text-slate-200">i</span> upgrades to its Vṛddhi counterpart <span class="font-mono text-amber-300">ai</span>.
+          </p>
+
+          <div class="p-3.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs space-y-2">
+            <div class="flex items-center justify-between text-slate-300">
+              <span>Base Noun + Suffix:</span>
+              <span class="text-amber-200">śiva + a (aṇ)</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-300">
+              <span>Vowel Upgrade (i → Vṛddhi):</span>
+              <span id="taddhitaTriggerVowel" class="text-emerald-400 font-bold">ai</span>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between font-bold text-sm">
+              <span class="text-slate-400">Derived Form:</span>
+              <span id="taddhitaResult" class="text-amber-400 font-serif text-base">śaiva (शैव)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FOOTNOTE REFERENCE CARD -->
+    <section class="rounded-xl bg-slate-900/60 border border-slate-800 p-4 text-xs text-slate-400 space-y-2">
+      <div class="flex items-center gap-2 font-semibold text-slate-300">
+        <i class="fa-solid fa-quote-left text-amber-400"></i>
+        <span>Academic Context & Methodology Note</span>
+      </div>
+      <p class="leading-relaxed">
+        Following the computational linguistics paradigms established by <strong>Anand Mishra (2019)</strong> in <em>Modeling the Pāṇinian System of Sanskrit Grammar</em>, this engine abstracts structural human language constraints into rigid, platform-agnostic datatypes. By mapping phonetic identifiers to structural attributes and conditional triggers, we establish a deterministic validation environment for digital humanities research.
+      </p>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto border-t border-slate-800 bg-slate-900/40 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-mono">
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 font-semibold">Sanskrit Schema Validator</span>
+        <span>•</span>
+        <span>Open-Access Computational Humanities</span>
+      </div>
+      <div>
+        <span>Built with HTML5, Tailwind CSS, & Native JS</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CUSTOM NOTIFICATION TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="px-4 py-3 rounded-xl bg-slate-800 border border-amber-500/40 text-slate-100 text-xs font-mono shadow-2xl flex items-center space-x-3">
+      <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+      <span id="toastMessage">Action completed successfully.</span>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC ENGINE -->
+  <script>
+    // Global Engine State
+    let currentInput = 'ā';
+    let currentPayload = null;
+
+    // Database of Phoneme Definitions based on Paninian Logic
+    const VRDDHI_PHONEMES = {
+      'ā': {
+        character: 'ā',
+        devanagari: 'आ',
+        iast: 'ā',
+        length: 'dīrgha',
+        matra: 2,
+        type: 'vowel',
+        diphthong: false,
+        phoneticCategory: 'kaṇṭhya (glottal/velar)'
+      },
+      'ai': {
+        character: 'ai',
+        devanagari: 'ऐ',
+        iast: 'ai',
+        length: 'dīrgha',
+        matra: 2,
+        type: 'diphthong_vowel',
+        diphthong: true,
+        phoneticCategory: 'kaṇṭhatālavya (palato-velar)'
+      },
+      'au': {
+        character: 'au',
+        devanagari: 'औ',
+        iast: 'au',
+        length: 'dīrgha',
+        matra: 2,
+        type: 'diphthong_vowel',
+        diphthong: true,
+        phoneticCategory: 'kaṇṭhoṣṭhya (labio-velar)'
+      }
+    };
+
+    // NON-VṚDDHI Phoneme Attributes database
+    const NON_VRDDHI_METADATA = {
+      'a': { devanagari: 'अ', type: 'hrasva vowel', reason: 'Short vowel (a). Does not meet āt-aic criteria.' },
+      'i': { devanagari: 'इ', type: 'hrasva vowel', reason: 'Short vowel (i). Belongs to ik pratyāhāra.' },
+      'u': { devanagari: 'उ', type: 'hrasva vowel', reason: 'Short vowel (u). Belongs to ik pratyāhāra.' },
+      'ṛ': { devanagari: 'ऋ', type: 'hrasva vowel', reason: 'Vocalic liquid. Belongs to ik pratyāhāra.' },
+      'e': { devanagari: 'ए', type: 'guṇa vowel', reason: 'Guṇa vowel defined by Rule 1.1.2 (adeṅ guṇaḥ), not Vṛddhi.' },
+      'o': { devanagari: 'ओ', type: 'guṇa vowel', reason: 'Guṇa vowel defined by Rule 1.1.2 (adeṅ guṇaḥ), not Vṛddhi.' },
+      'k': { devanagari: 'क्', type: 'consonant', reason: 'Stop consonant (sparśa). Rule 1.1.1 applies strictly to vowels.' },
+      'm': { devanagari: 'म्', type: 'consonant', reason: 'Nasal consonant. Rule 1.1.1 applies strictly to vowels.' }
+    };
+
+    // On DOM Loaded Init Engine
+    window.onload = function() {
+      executeTransducer();
+    };
+
+    // Quick Button Selection Handler
+    function selectPhoneme(char, desc) {
+      document.getElementById('customPhonemeInput').value = char;
+      currentInput = char;
+      updateCharCount();
+      executeTransducer();
+    }
+
+    // Custom Input Handler
+    function handleCustomInput(val) {
+      currentInput = val.trim();
+      updateCharCount();
+    }
+
+    function updateCharCount() {
+      const count = currentInput.length;
+      document.getElementById('inputCharCount').innerText = `${count} char${count !== 1 ? 's' : ''}`;
+    }
+
+    // Core Schema Evaluation Engine
+    function executeTransducer() {
+      const input = document.getElementById('customPhonemeInput').value.trim();
+      currentInput = input;
+      
+      const startTime = performance.now();
+      const isVrddhi = VRDDHI_PHONEMES.hasOwnProperty(input);
+      const phonemeMeta = VRDDHI_PHONEMES[input] || null;
+      
+      // Build JSON Schema Payload Object according to Mishra (2019) Formalism
+      const payload = {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "title": "PaninianRule_1_1_1_Verification",
+        "timestamp": new Date().toISOString(),
+        "evaluationContext": {
+          "ruleId": "1.1.1",
+          "sutra": "वृद्धिरादैच्",
+          "sutraTransliterated": "vṛddhirādaic",
+          "morphologicalComponents": ["āt", "aic"],
+          "ruleType": "saṃjñā (definition)"
+        },
+        "inputToken": {
+          "raw": input,
+          "normalizedIAST": input.toLowerCase(),
+          "characterLength": input.length
+        },
+        "validationResult": {
+          "isVrddhi": isVrddhi,
+          "status": isVrddhi ? "PASSED" : "FAILED_MISMATCH",
+          "assignedTerm": isVrddhi ? "Vṛddhi" : null,
+          "targetSet": ["ā", "ai", "au"],
+          "matchType": isVrddhi ? "EXACT_SET_MEMBER" : "NONE"
+        },
+        "phoneticAttributes": isVrddhi ? {
+          "devanagari": phonemeMeta.devanagari,
+          "lengthCategory": phonemeMeta.length,
+          "matraCount": phonemeMeta.matra,
+          "isDiphthong": phonemeMeta.diphthong,
+          "articulationPlace": phonemeMeta.phoneticCategory
+        } : {
+          "category": NON_VRDDHI_METADATA[input]?.type || "Non-Vṛddhi Phoneme",
+          "devanagari": NON_VRDDHI_METADATA[input]?.devanagari || "Unknown"
+        },
+        "downstreamExecutionTriggers": {
+          "sandhiFormation": isVrddhi,
+          "taddhitaAffixation": isVrddhi,
+          "executionPriority": isVrddhi ? 1 : 0,
+          "activeRules": isVrddhi ? ["6.1.88", "7.2.115"] : []
+        }
+      };
+
+      currentPayload = payload;
+      const endTime = performance.now();
+      const elapsed = (endTime - startTime).toFixed(2);
+
+      // Render Pipeline UI States
+      renderPipelineUI(isVrddhi, input, elapsed);
+      renderJsonOutput(payload);
+      renderExplanation(isVrddhi, input);
+      renderAutomationSection(isVrddhi, input);
+    }
+
+    // UI Pipeline Visualizer Updater
+    function renderPipelineUI(isVrddhi, input, elapsed) {
+      document.getElementById('evaluationTime').innerText = `${elapsed} ms`;
+
+      // Tier 1
+      document.getElementById('step1Value').innerText = `Token: '${input || 'Ø'}'`;
+      
+      // Tier 2
+      document.getElementById('step2Value').innerText = isVrddhi 
+        ? `Matched: {${input}} ∈ {ā, ai, au}` 
+        : `Unmatched: '${input}' ∉ {ā, ai, au}`;
+
+      // Tier 3
+      document.getElementById('step3Value').innerText = isVrddhi 
+        ? `Status: PASSED (Vṛddhi)` 
+        : `Status: MISMATCH (False)`;
+
+      // Cards Styling Updates
+      const card1 = document.getElementById('step1Card');
+      const card2 = document.getElementById('step2Card');
+      const card3 = document.getElementById('step3Card');
+
+      card1.className = "p-3 rounded-lg bg-slate-900 border border-slate-700 transition-all";
+      card2.className = isVrddhi 
+        ? "p-3 rounded-lg bg-slate-900 border border-emerald-500/40 transition-all" 
+        : "p-3 rounded-lg bg-slate-900 border border-rose-500/40 transition-all";
+      card3.className = isVrddhi 
+        ? "p-3 rounded-lg bg-slate-900 border border-emerald-500/40 transition-all" 
+        : "p-3 rounded-lg bg-slate-900 border border-slate-800 transition-all";
+
+      // Status Badge
+      const badge = document.getElementById('statusBadge');
+      if (isVrddhi) {
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 glow-emerald";
+        badge.innerHTML = `<i class="fa-solid fa-circle-check text-[10px]"></i> PASSED (True State)`;
+      } else {
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30 glow-rose";
+        badge.innerHTML = `<i class="fa-solid fa-circle-xmark text-[10px]"></i> MISMATCH (False State)`;
+      }
+    }
+
+    // Syntax Highlight & Render JSON
+    function renderJsonOutput(payload) {
+      const jsonString = JSON.stringify(payload, null, 2);
+      const highlighted = syntaxHighlightJson(jsonString);
+      document.getElementById('jsonOutput').innerHTML = highlighted;
+
+      // Update Byte Count
+      const bytes = new Blob([jsonString]).size;
+      document.getElementById('byteSizeText').innerText = `Payload Size: ${bytes} bytes`;
+    }
+
+    function syntaxHighlightJson(json) {
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(/("(\\u[a-zA-A0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key-dark';
+          } else {
+            cls = 'json-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    // Explanation Log Renderer
+    function renderExplanation(isVrddhi, input) {
+      const box = document.getElementById('explanationBox');
+      if (isVrddhi) {
+        const meta = VRDDHI_PHONEMES[input];
+        box.innerHTML = `
+          <p class="text-emerald-400 font-semibold flex items-center gap-1.5">
+            <i class="fa-solid fa-check"></i> Rule 1.1.1 Validation Successful
+          </p>
+          <p class="text-slate-300">
+            The input character <strong class="font-mono text-amber-300">'${input}'</strong> (${meta.devanagari}) is explicitly declared in Aṣṭādhyāyī 1.1.1 (<em>vṛddhirādaic</em>).
+          </p>
+          <p class="text-slate-400 text-[11px]">
+            • <strong>Pāṇinian Proof:</strong> The rule defines <span class="font-mono text-slate-200">āt</span> (long ā) + <span class="font-mono text-slate-200">aic</span> (diphthongs ai, au) = term <strong>Vṛddhi</strong>.<br>
+            • <strong>Automation Status:</strong> Unlocks downstream triggers for Sandhi synthesis and Taddhita derivations.
+          </p>
+        `;
+      } else {
+        const customReason = NON_VRDDHI_METADATA[input]?.reason || `The character '${input}' is not part of the defined target set {ā, ai, au}.`;
+        box.innerHTML = `
+          <p class="text-rose-400 font-semibold flex items-center gap-1.5">
+            <i class="fa-solid fa-triangle-exclamation"></i> Rule 1.1.1 Constraint Violation
+          </p>
+          <p class="text-slate-300">
+            The input character <strong class="font-mono text-rose-300">'${input || 'empty'}'</strong> does NOT satisfy Rule 1.1.1.
+          </p>
+          <p class="text-slate-400 text-[11px]">
+            • <strong>Reason:</strong> ${customReason}<br>
+            • <strong>Pipeline Action:</strong> Execution priority set to 0. Downstream Vṛddhi rules blocked to prevent compilation errors.
+          </p>
+        `;
+      }
+    }
+
+    // Downstream Automation Simulation Renderer
+    function renderAutomationSection(isVrddhi, input) {
+      const indicator = document.getElementById('automationStatusIndicator');
+      const sandhiVowel = document.getElementById('sandhiTriggerVowel');
+      const taddhitaVowel = document.getElementById('taddhitaTriggerVowel');
+
+      if (isVrddhi) {
+        indicator.className = "px-3 py-1 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-fit";
+        indicator.innerText = "Triggers Active";
+
+        sandhiVowel.innerText = input;
+        taddhitaVowel.innerText = input;
+      } else {
+        indicator.className = "px-3 py-1 rounded-md text-xs font-mono bg-slate-800 text-slate-400 border border-slate-700 w-fit";
+        indicator.innerText = "Triggers Inactive (Default Fallback Active)";
+
+        sandhiVowel.innerText = "ai (default demo)";
+        taddhitaVowel.innerText = "ai (default demo)";
+      }
+    }
+
+    // Copy JSON to Clipboard
+    function copyJsonPayload() {
+      if (!currentPayload) return;
+      const formatted = JSON.stringify(currentPayload, null, 2);
+      
+      // Fallback copy execution
+      const dummy = document.createElement("textarea");
+      document.body.appendChild(dummy);
+      dummy.value = formatted;
+      dummy.select();
+      document.execCommand("copy");
+      document.body.removeChild(dummy);
+
+      showToast("JSON Payload copied to clipboard!", "success");
+    }
+
+    // Download JSON File
+    function downloadJsonReport() {
+      if (!currentPayload) return;
+      const formatted = JSON.stringify(currentPayload, null, 2);
+      const blob = new Blob([formatted], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vrddhi_schema_1.1.1_${currentInput || 'report'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("JSON Report downloaded!", "success");
+    }
+
+    // Toast Notification Utility
+    function showToast(message, type = "success") {
+      const toast = document.getElementById("toast");
+      const toastMsg = document.getElementById("toastMessage");
+      const toastIcon = document.getElementById("toastIcon");
+
+      toastMsg.innerText = message;
+      if (type === "success") {
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-base";
+      }
+
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+
+      setTimeout(() => {
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
